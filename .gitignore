@@ -1,0 +1,6 @@
+.DS_Store
+
+# colcon output
+build
+install
+log
