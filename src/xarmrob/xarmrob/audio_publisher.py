@@ -36,7 +36,7 @@ class AudioPublisher(Node):
                                       frames_per_buffer=self.chunk,
                                       input_device_index=self.device_index)
 
-        self.publisher_ = self.create_publisher(ByteMultiArray, 'audio_data', 10)
+        self.publisher_ = self.create_publisher(ByteMultiArray, 'raw_audio', 10)
         self.timer = self.create_timer(0.1, self.timer_callback)  # 10Hz
 
         self.get_logger().info("Audio Publisher Node Started")
