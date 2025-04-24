@@ -44,7 +44,7 @@ class AudioPublisher(Node):
     def find_logitech_device(self):
         for i in range(self.audio.get_device_count()):
             info = self.audio.get_device_info_by_index(i)
-            if "Logitech" in info['name']:
+            if "USB Device" in info['name']:
                 self.get_logger().info(f"Using audio device: {info['name']} (index {i})")
                 return i
         raise RuntimeError("Logitech audio device not found!")
@@ -52,7 +52,7 @@ class AudioPublisher(Node):
     def timer_callback(self):
         data = self.stream.read(self.chunk, exception_on_overflow=False)
         msg = ByteMultiArray()
-        msg.data = list(data)  # send raw bytes
+        msg.data = bytes(data)  # send raw bytes
         self.publisher_.publish(msg)
 
     def destroy_node(self):

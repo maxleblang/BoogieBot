@@ -37,7 +37,8 @@ setup(
         'endpoint_keyboard=xarmrob.endpoint_keyboard:main',
         'xarm_kinematics=xarmrob.xarm_kinematics:main',
         'endpoint_keyboard_smooth=xarmrob.endpoint_keyboard_smooth:main',
-        'endpoint_automatic_smooth=xarmrob.endpoint_automatic_smooth:main'
+        'endpoint_automatic_smooth=xarmrob.endpoint_automatic_smooth:main',
+	'audio_publisher=xarmrob.audio_publisher:main'
         ],
     },
 )
