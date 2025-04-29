@@ -14,8 +14,8 @@ from xarmrob_interfaces.msg import ME439JointCommand
 import xarm
 
 
-class CommandXArm(Node): 
-    def __init__(self): 
+class CommandXArm(Node):
+    def __init__(self):
         super().__init__('command_arm')
                     
         # =============================================================================

@@ -39,9 +39,8 @@ def generate_launch_description():
         ),
         Node(
             package='xarmrob',
-            executable='endpoint_automatic_smooth',
-            name='endpoint_automatic_smooth',
-            output='screen',
+            executable='boogie_commander',
+            name='boogie_commander',
             parameters=[params_file]
         ),
         
