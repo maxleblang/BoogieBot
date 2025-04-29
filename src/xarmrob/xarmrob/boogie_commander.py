@@ -28,7 +28,7 @@ coloredtext = lambda r, g, b, text: f'\033[38;2;{r};{g};{b}m{text}\033[38;2;255;
 
 class BoogieCommander(Node): 
     def __init__(self): 
-        super().__init__('endpoint_automatic')
+        super().__init__('boogie_commander')
                 
         
         self.xyz_goal = [0.15, 0.0, 0.10] # roughly upright neutral with wrist at 45 degrees. Formally: [0.1646718829870224, 0.0, 0.1546700894832611]
@@ -48,28 +48,30 @@ class BoogieCommander(Node):
 
         # command frequency parameter: how often we expect it to be updated    
         self.command_frequency = self.declare_parameter('command_frequency',5).value
-        self.movement_time_ms = round(1000/self.command_frequency)  # milliseconds for movement time. 
+        #self.movement_time_ms = round(5000/self.command_frequency)  # milliseconds for movement time. 
         self.endpoint_speed = self.declare_parameter('endpoint_speed',0.05).value  # nominal speed for continuous movement among points. 
         
         #Get Height offset for safety (do practice runs in the air)
         self.vertical_offset = self.declare_parameter('vertical_offset',0.02).value
         
-        self.set_endpoint_trajectory()
-        
-        time.sleep(5)
+        self.bpm = 100
+        self.movement_time_s = 60/(self.bpm)
         
         # Set up a timer to send the commands at the specified rate. 
-        self.timer = self.create_timer(self.movement_time_ms/1000, self.send_endpoint_desired)#,callback_group=ReentrantCallbackGroup())
+        self.timer = self.create_timer(self.movement_time_s, self.send_endpoint_desired)#,callback_group=ReentrantCallbackGroup())
 
     # Callback to publish the endpoint at the specified rate. 
     def send_endpoint_desired(self):
         simple_dance = [
-            [0.1,0.1,0.1],
-            [0.1,-0.1,0.1]
+            [0.1957, 0, 0.1],
+            [0.1957, 0, 0.15],
+            [0.1957, 0, 0.1],
+            [0.1957, 0, 0.05],
         ]
 
         self.idx = (self.idx + 1) % len(simple_dance)
         self.endpoint_desired_msg.xyz = simple_dance[self.idx]
+        print("Moving to", self.endpoint_desired_msg.xyz)
         self.pub_endpoint_desired.publish(self.endpoint_desired_msg)
 
         
