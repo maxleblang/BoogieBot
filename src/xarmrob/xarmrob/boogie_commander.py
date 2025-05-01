@@ -80,22 +80,34 @@ class BoogieCommander(Node):
 
     # linearly interpolate between angles
     @staticmethod
-    def interpolate_joint_poses(start_pose, end_pose, num_steps=100):
-        # Convert inputs to numpy arrays
-        start_pose = np.array(start_pose)
-        end_pose = np.array(end_pose)
+    def interpolate_joint_poses(poses, steps_between_poses=50):
+        if len(poses) < 2:
+            raise ValueError("Need at least two poses to interpolate")
+        
+        # Convert all poses to numpy arrays
+        poses = [np.array(pose) for pose in poses]
         
         # Create trajectory array
         trajectory = []
         
-        for step in range(num_steps):
-            # Calculate interpolation parameter (0 to 1)
-            t = step / (num_steps - 1)
+        # Interpolate between each consecutive pair of poses
+        for i in range(len(poses) - 1):
+            start_pose = poses[i]
+            end_pose = poses[i + 1]
             
-            # Linear interpolation
-            interpolated = start_pose + t * (end_pose - start_pose)
-            
-            trajectory.append(interpolated)
+            # For each step between the current pose pair
+            for step in range(steps_between_poses):
+                # Don't add the end point except for the final segment
+                if step == steps_between_poses - 1 and i < len(poses) - 2:
+                    continue
+                    
+                # Calculate interpolation parameter (0 to 1)
+                t = step / (steps_between_poses - 1)
+                
+                # Linear interpolation
+                interpolated = start_pose + t * (end_pose - start_pose)
+                
+                trajectory.append(interpolated)
         
         return np.array(trajectory)
 
