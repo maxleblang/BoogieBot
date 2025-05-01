@@ -6,7 +6,9 @@ Created on Tue Apr 22 13:46:35 2025
 """
 
 # audio_publisher.py
+from time import sleep
 import rclpy
+import random
 from rclpy.node import Node
 from std_msgs.msg import Int32, ByteMultiArray
 
@@ -22,7 +24,7 @@ class BPMPublisher(Node):
         self.subscription = self.create_subscription(ByteMultiArray, 'raw_audio', self.extract_bpm_from_audio, 10)
 
     def extract_bpm_from_audio(self, msg_in):
-        raw_audio = bytes(msg_in.date)
+        raw_audio = bytes(msg_in.data)
         # TODO: process raw_audio to get bmp
         # TODO: publish detected bpm (maybe don't publish if the bpm is within certain tolerance of previous bpm)
 
@@ -34,16 +36,32 @@ class BPMPublisher(Node):
         self.publisher.publish(msg_out)
         self.get_logger().info(f"Detected BPM of {bpm}")
 
+    
+    def simulate_bpm(self):
+        while True:
+            bpm = 126
+            msg_out = Int32()
+            msg_out.data = bpm
+            self.publisher.publish(msg_out)
+
+            random_delay = random.uniform(.2,1)
+            sleep(random_delay)
+
+
 def main(args=None):
     rclpy.init(args=args)
     bpm_publisher = BPMPublisher()
 
-    try:
-        # "spin" will block the program until an error occurs, e.g. keyboard break Ctrl+C. 
-        rclpy.spin(bpm_publisher)
-    except: 
-        # When an error occurs, catch it with "except" and stop the motors
-        bpm_publisher.get_logger().info('Stopping BPM Publisher') 
+    # Simulate sensing and publishing the bpm
+    bpm_publisher.simulate_bpm()
+
+
+    # try:
+    #     # "spin" will block the program until an error occurs, e.g. keyboard break Ctrl+C. 
+    #     rclpy.spin(bpm_publisher)
+    # except: 
+    #     # When an error occurs, catch it with "except" and stop the motors
+    #     bpm_publisher.get_logger().info('Stopping BPM Publisher') 
 
     rclpy.shutdown()
 
