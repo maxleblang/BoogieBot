@@ -80,19 +80,24 @@ class BoogieCommander(Node):
 
     # linearly interpolate between angles
     @staticmethod
-    def interpolate_joint_angles(start_angles, end_angles, num_steps):
-        # Initialize result list
-        interpolated_angles = []
+    def interpolate_joint_poses(start_pose, end_pose, num_steps=100):
+        # Convert inputs to numpy arrays
+        start_pose = np.array(start_pose)
+        end_pose = np.array(end_pose)
         
-        # Calculate step size for each joint angle
-        step_sizes = [(end - start) / (num_steps - 1) for start, end in zip(start_angles, end_angles)]
+        # Create trajectory array
+        trajectory = []
         
-        # Generate interpolated angles for each step
         for step in range(num_steps):
-            current_angles = [start + step * step_size for start, step_size in zip(start_angles, step_sizes)]
-            interpolated_angles.append(current_angles)
+            # Calculate interpolation parameter (0 to 1)
+            t = step / (num_steps - 1)
+            
+            # Linear interpolation
+            interpolated = start_pose + t * (end_pose - start_pose)
+            
+            trajectory.append(interpolated)
         
-        return interpolated_angles
+        return np.array(trajectory)
 
 
 def main(args=None):
