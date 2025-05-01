@@ -87,7 +87,18 @@ class BoogieCommander(Node):
 
     # linearly interpolate between angles
     @staticmethod
-    def interpolate_joint_poses(poses, steps_between_poses=100):
+    def interpolate_joint_poses(poses, steps_between_poses=50, method="minimum_jerk"):
+        """
+        Interpolate between a sequence of joint poses using minimum jerk trajectory.
+        
+        Args:
+            poses: List of joint angle arrays, where each array is [j1, j2, ..., jn]
+            steps_between_poses: Number of steps between consecutive poses
+            method: Interpolation method ("linear" or "minimum_jerk")
+            
+        Returns:
+            Array of interpolated joint angles for the entire trajectory
+        """
         if len(poses) < 2:
             raise ValueError("Need at least two poses to interpolate")
         
@@ -111,8 +122,16 @@ class BoogieCommander(Node):
                 # Calculate interpolation parameter (0 to 1)
                 t = step / (steps_between_poses - 1)
                 
-                # Linear interpolation
-                interpolated = start_pose + t * (end_pose - start_pose)
+                if method == "minimum_jerk":
+                    # Minimum jerk trajectory (5th order polynomial)
+                    # This polynomial ensures zero velocity and acceleration at endpoints
+                    smooth_t = 10*t**3 - 15*t**4 + 6*t**5
+                else:
+                    # Default to linear interpolation
+                    smooth_t = t
+                
+                # Interpolate between poses
+                interpolated = start_pose + smooth_t * (end_pose - start_pose)
                 
                 trajectory.append(interpolated)
         
