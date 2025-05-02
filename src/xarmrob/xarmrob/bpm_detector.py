@@ -19,7 +19,7 @@ class BPMDetector:
         self.chunk_size = chunk_size
         self.buffer_len = int(sample_rate / chunk_size * history_sec)
         self.envelope_buffer = []
-        self.last_bpm = 122
+        self.last_bpm = 120
         self.recent_bpms = []
         
         # Beat detection variables

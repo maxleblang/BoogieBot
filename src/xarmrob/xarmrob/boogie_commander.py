@@ -59,36 +59,29 @@ class BoogieCommander(Node):
             [np.pi/8,-np.pi/2, np.pi/2,-np.pi/16,-np.pi/16,0.,0.],
         ))
         self.simple_dance = self.interpolate_minimum_jerk_poses_only(self.simple_dance)
-
-        self.disco_point_dance = [
-            [0.0,       -np.pi/6,   np.pi/6,   -np.pi/3,   np.pi/6,  0.0,     0.0],  # Neutral base, prep pose
-            [np.pi/8,   -np.pi/4,   np.pi/3,   -np.pi/2,   np.pi/3,  0.1,    -0.1],  # Raise right, lower left
-            [np.pi/4,   -np.pi/6,   np.pi/4,   -np.pi/3,   0.0,     -0.1,     0.1],  # Point diagonally up right
-            [np.pi/2,    0.0,       np.pi/6,   -np.pi/6,  -np.pi/6,  0.05,   -0.05], # Snap into lean + flick wrist
-            [np.pi/4,   -np.pi/6,   np.pi/4,   -np.pi/3,   0.0,      0.0,     0.0],  # Return to pointing
-            [0.0,       -np.pi/4,   np.pi/3,   -np.pi/2,   np.pi/3, -0.1,     0.1],  # Mirror left point
-            [-np.pi/4,  -np.pi/6,   np.pi/4,   -np.pi/3,   0.0,      0.1,    -0.1],  # Point up left
-            [-np.pi/2,   0.0,       np.pi/6,   -np.pi/6,   np.pi/6, -0.05,    0.05]  # Pose + flick from left
+        self.twist_and_punch_dance = np.vstack((
+            [np.pi/4, -2*np.pi/3, np.pi/2, 0., 0., 0., 0.],
+            [np.pi/8, -7*np.pi/12, np.pi/2, 0., 0., 0., 0.],
+            [0., -np.pi/2, np.pi/2, 0., 0., 0., 0.],
+            [-np.pi/8, -5*np.pi/12, np.pi/2, 0., 0., 0., 0.],
+            [-np.pi/4, -np.pi/3, np.pi/2, 0., 0., 0., 0.],
+            [-np.pi/8, -5*np.pi/12, np.pi/2, 0., 0., 0., 0.],
+            [0., -np.pi/2, np.pi/2, 0., 0., 0., 0.],
+            [np.pi/8, -7*np.pi/12, np.pi/2, 0., 0., 0., 0.],
+        ))
+        self.twist_and_punch_dance = self.interpolate_minimum_jerk_poses_only(self.twist_and_punch_dance)
+        self.dances = [
+            self.simple_dance,
+            self.twist_and_punch_dance
         ]
-        self.disco_point_dance = self.interpolate_joint_poses(self.disco_point_dance)
-
-        self.twist_and_punch_dance = [
-            [np.pi/6,   -np.pi/4,  np.pi/8,   -np.pi/2, np.pi/4,  0.1, -0.1],
-            [0.,        -np.pi/6,  np.pi/4,   -np.pi/4, np.pi/2, -0.1,  0.1],
-            [-np.pi/6,   np.pi/6, -np.pi/8,    np.pi/4, -np.pi/4, 0.2, -0.2],
-            [-np.pi/4,   0.,      -np.pi/2,    np.pi/2, 0.,      -0.2,  0.2],
-            [0.,        -np.pi/8,  np.pi/2,   -np.pi/8, np.pi/3,  0.1, -0.1],
-            [np.pi/4,    np.pi/6, -np.pi/4,    np.pi/4, -np.pi/3, 0.,   0.],
-            [np.pi/6,   -np.pi/4,  np.pi/8,   -np.pi/2, np.pi/4, -0.1,  0.1],
-            [0.,         0.,       0.,         0.,       0.,      0.,   0.]
-        ]
-        self.twist_and_punch_dance = self.interpolate_joint_poses(self.twist_and_punch_dance)
-
-
-        self.selected_dance = self.simple_dance
-        self.current_bpm = 117
-        self.prev_bpm = 117
+        
+        self.dance_i = 0
+        self.selected_dance = self.dances[self.dance_i]
+        self.current_bpm = 120
+        self.prev_bpm = 120
         self.bpm_delta = 31
+        self.dance_repeat = 5
+        self.dance_cnt = 0
 
         # Set initial default rate to 126 BPM
         self.timer = None
@@ -100,6 +93,14 @@ class BoogieCommander(Node):
         self.joint_angles_desired_msg.position = self.selected_dance[self.idx]
         self.joint_angles_desired_msg.header.stamp = self.get_clock().now().to_msg()
         self.pub_joint_angles_desired.publish(self.joint_angles_desired_msg)
+        if self.idx == len(self.selected_dance) - 1:
+            self.dance_cnt += 1
+            
+        if self.dance_cnt == self.dance_repeat:
+            self.dance_cnt = 0
+            self.dance_i = (self.dance_i + 1) % len(self.dances)
+            self.selected_dance = self.dances[self.dance_i]
+            self.get_logger().info("Changing dance")
 
 
     # Callback the sets timer bpm to input
@@ -112,61 +113,9 @@ class BoogieCommander(Node):
                 self.get_logger().info(f"Changing to new bpm of {self.current_bpm}")
                 if self.timer:
                     self.timer.cancel()
-                self.timer = self.create_timer(60/((self.current_bpm + self.bpm_delta)*len(self.selected_dance)), self.boogie)
+                self.timer = self.create_timer(60/((self.current_bpm/2 + self.bpm_delta)*len(self.selected_dance)), self.boogie)
                 self.prev_bpm = self.current_bpm
 
-
-    # linearly interpolate between angles
-    @staticmethod
-    def interpolate_joint_poses(poses, steps_between_poses=50, method="minimum_jerk"):
-        """
-        Interpolate between a sequence of joint poses using minimum jerk trajectory.
-        
-        Args:
-            poses: List of joint angle arrays, where each array is [j1, j2, ..., jn]
-            steps_between_poses: Number of steps between consecutive poses
-            method: Interpolation method ("linear" or "minimum_jerk")
-            
-        Returns:
-            Array of interpolated joint angles for the entire trajectory
-        """
-        if len(poses) < 2:
-            raise ValueError("Need at least two poses to interpolate")
-        
-        # Convert all poses to numpy arrays
-        poses = [np.array(pose) for pose in poses]
-        
-        # Create trajectory array
-        trajectory = []
-        
-        # Interpolate between each consecutive pair of poses
-        for i in range(len(poses) - 1):
-            start_pose = poses[i]
-            end_pose = poses[i + 1]
-            
-            # For each step between the current pose pair
-            for step in range(steps_between_poses):
-                # Don't add the end point except for the final segment
-                if step == steps_between_poses - 1 and i < len(poses) - 2:
-                    continue
-                    
-                # Calculate interpolation parameter (0 to 1)
-                t = step / (steps_between_poses - 1)
-                
-                if method == "minimum_jerk":
-                    # Minimum jerk trajectory (5th order polynomial)
-                    # This polynomial ensures zero velocity and acceleration at endpoints
-                    smooth_t = 10*t**3 - 15*t**4 + 6*t**5
-                else:
-                    # Default to linear interpolation
-                    smooth_t = t
-                
-                # Interpolate between poses
-                interpolated = start_pose + smooth_t * (end_pose - start_pose)
-                
-                trajectory.append(interpolated)
-        
-        return np.array(trajectory)
     
 
     @staticmethod
