@@ -63,7 +63,7 @@ class BPMDetectorNode(Node):
         super().__init__('bpm_detector_node')
         
         # Parameters
-        self.declare_parameter('sample_rate', 44100)
+        self.declare_parameter('sample_rate', 16000)
         self.declare_parameter('chunk_size', 1024)
         self.declare_parameter('buffer_seconds', 5)
         self.declare_parameter('low_freq', 60)
