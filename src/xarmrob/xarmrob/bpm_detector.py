@@ -10,7 +10,7 @@ import threading
 import time
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Int32
+from std_msgs.msg import Int32, Empty
 
 
 class BPMDetector:
@@ -21,19 +21,52 @@ class BPMDetector:
         self.envelope_buffer = []
         self.last_bpm = 0
         self.recent_bpms = []
+        
+        # Beat detection variables
+        self.last_beat_time = 0
+        self.beat_threshold = 1.5  # Adjust as needed
+        self.min_time_between_beats = 0.3  # Seconds, prevents too many false positives
+        self.beat_callback = None
+
+    def set_beat_callback(self, callback):
+        self.beat_callback = callback
 
     def update(self, audio_chunk):
         rectified = np.abs(audio_chunk)
         smoothed = lfilter([1], [1, -0.997], rectified)
         mean_env = np.mean(smoothed)
         self.envelope_buffer.append(mean_env)
+        
+        # Check if this is a beat
+        beat_detected = False
+        current_time = time.time()
+        
+        if len(self.envelope_buffer) > 5:  # Need some history for comparison
+            # Calculate a dynamic threshold based on recent history
+            recent_history = self.envelope_buffer[-20:]
+            threshold = np.mean(recent_history) + self.beat_threshold * np.std(recent_history)
+            
+            # Check if current envelope exceeds threshold and enough time has passed
+            if (mean_env > threshold and 
+                current_time - self.last_beat_time > self.min_time_between_beats):
+                beat_detected = True
+                self.last_beat_time = current_time
+                
+                # Trigger callback
+                if self.beat_callback:
+                    self.beat_callback(self.last_bpm)
+        
+        # Maintain buffer size
         if len(self.envelope_buffer) > self.buffer_len:
             self.envelope_buffer.pop(0)
+            
+        # Calculate BPM
         if len(self.envelope_buffer) >= 16:
             bpm = self.calculate_bpm()
             if 40 <= bpm <= 200:
                 self.last_bpm = bpm
-        return self.last_bpm
+                
+        return self.last_bpm, beat_detected
 
     def calculate_bpm(self):
         env = np.array(self.envelope_buffer)
@@ -94,25 +127,19 @@ class BPMDetectorNode(Node):
             history_sec=6
         )
         
+        # Set beat callback
+        self.bpm_detector.set_beat_callback(self.on_beat_detected)
+        
         # Publishers
         self.bpm_publisher = self.create_publisher(Int32, 'bpm', 10)
-        # self.waveform_publisher = self.create_publisher(Float32MultiArray, 'audio_waveform', 10)
-        # self.spectrum_publisher = self.create_publisher(Float32MultiArray, 'audio_spectrum', 10)
-        # self.waveform_img_publisher = self.create_publisher(Image, 'waveform_image', 10)
-        # self.spectrum_img_publisher = self.create_publisher(Image, 'spectrum_image', 10)
+        self.beat_publisher = self.create_publisher(Int32, 'beat', 10)  # Publishes BPM on each beat
+        self.beat_event_publisher = self.create_publisher(Empty, 'beat_event', 10)  # Simple beat trigger
         
         # Initialize PyAudio
         self.p = pyaudio.PyAudio()
         self.stream = None
         self.running = False
         
-        # Bridge for converting images
-        # self.bridge = CvBridge()
-        
-        # Create timers
-        # timer_period = 1.0 / self.get_parameter('visualization_rate').value
-        # self.timer = self.create_timer(timer_period, self.timer_callback)
-
         self.device_index = self.find_mic()
         
         # Start audio processing in a separate thread
@@ -121,6 +148,18 @@ class BPMDetectorNode(Node):
         self.audio_thread.start()
         
         self.get_logger().info('BPM Detector Node started')
+
+    def on_beat_detected(self, current_bpm):
+        """Callback when a beat is detected"""
+        # Publish BPM on beat
+        bpm_msg = Int32()
+        bpm_msg.data = current_bpm
+        self.beat_publisher.publish(bpm_msg)
+        
+        # Publish beat event
+        self.beat_event_publisher.publish(Empty())
+        
+        self.get_logger().debug(f'Beat detected! Current BPM: {current_bpm}')
 
     def _butter_bandpass(self, lowcut, highcut, fs, order=5):
         nyq = 0.5 * fs
@@ -136,9 +175,11 @@ class BPMDetectorNode(Node):
     def _audio_callback(self, in_data, frame_count, time_info, status):
         audio_data = np.frombuffer(in_data, dtype=np.float32)
         filtered = self._apply_bandpass_filter(audio_data, self.low_freq, self.high_freq, self.sample_rate)
-        current_bpm = self.bpm_detector.update(filtered)
         
-        # Publish BPM
+        # Update detector and get BPM and beat status
+        current_bpm, beat_detected = self.bpm_detector.update(filtered)
+        
+        # Always publish current BPM (regardless of beat)
         bpm_msg = Int32()
         bpm_msg.data = current_bpm
         self.bpm_publisher.publish(bpm_msg)
@@ -183,83 +224,8 @@ class BPMDetectorNode(Node):
             if "USB Device" in info['name']:
                 self.get_logger().info(f"Using audio device: {info['name']} (index {i})")
                 return i
-        raise RuntimeError("Logitech audio device not found!")
-
-    # def generate_waveform_image(self):
-    #     fig, ax = plt.subplots(figsize=(10, 4), dpi=100)
-        
-    #     filtered_data = self._apply_bandpass_filter(
-    #         self.audio_buffer, self.low_freq, self.high_freq, self.sample_rate
-    #     )
-        
-    #     ax.plot(self.time_buffer, self.audio_buffer, label='Raw Audio')
-    #     ax.plot(self.time_buffer, filtered_data, label='Filtered Audio', color='r', alpha=0.6)
-    #     ax.set_xlim([-self.buffer_seconds, 0])
-    #     ax.set_ylim([-1, 1])
-    #     ax.set_xlabel('Time (s)')
-    #     ax.set_ylabel('Amplitude')
-    #     ax.set_title(f'Audio Waveform — BPM: {self.bpm_detector.last_bpm}')
-    #     ax.legend()
-    #     ax.grid(True)
-        
-    #     fig.tight_layout()
-        
-    #     # Convert figure to image
-    #     fig.canvas.draw()
-    #     img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-    #     img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    #     plt.close(fig)
-        
-    #     return img
-
-    # def generate_spectrum_image(self):
-    #     fig, ax = plt.subplots(figsize=(10, 4), dpi=100)
-        
-    #     fft_data = np.abs(np.fft.rfft(self.fft_buffer)) / self.fft_size
-        
-    #     ax.plot(self.freq_buffer, fft_data)
-    #     ax.set_xlim([0, 2000])
-    #     ax.set_xlabel('Frequency (Hz)')
-    #     ax.set_ylabel('Magnitude')
-    #     ax.set_title('Frequency Spectrum')
-    #     ax.axvspan(self.low_freq, self.high_freq, alpha=0.2, color='red')
-    #     ax.grid(True)
-        
-    #     fig.tight_layout()
-        
-    #     # Convert figure to image
-    #     fig.canvas.draw()
-    #     img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-    #     img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    #     plt.close(fig)
-        
-    #     return img
-
-    # def timer_callback(self):
-    #     # Publish raw waveform data
-    #     waveform_msg = Float32MultiArray()
-    #     waveform_msg.data = self.audio_buffer.tolist()
-    #     self.waveform_publisher.publish(waveform_msg)
-        
-    #     # Publish spectrum data
-    #     fft_data = np.abs(np.fft.rfft(self.fft_buffer)) / self.fft_size
-    #     spectrum_msg = Float32MultiArray()
-    #     spectrum_msg.data = fft_data.tolist()
-    #     self.spectrum_publisher.publish(spectrum_msg)
-        
-    #     # Generate and publish visualization images
-    #     try:
-    #         # Waveform image
-    #         waveform_img = self.generate_waveform_image()
-    #         waveform_img_msg = self.bridge.cv2_to_imgmsg(waveform_img, encoding="rgb8")
-    #         self.waveform_img_publisher.publish(waveform_img_msg)
-            
-    #         # Spectrum image
-    #         spectrum_img = self.generate_spectrum_image()
-    #         spectrum_img_msg = self.bridge.cv2_to_imgmsg(spectrum_img, encoding="rgb8")
-    #         self.spectrum_img_publisher.publish(spectrum_img_msg)
-    #     except Exception as e:
-    #         self.get_logger().error(f'Error generating visualization: {str(e)}')
+        self.get_logger().warning("Logitech audio device not found! Using default input device.")
+        return None  # Use default input device
 
     def destroy_node(self):
         self.get_logger().info('Shutting down BPM Detector Node')
