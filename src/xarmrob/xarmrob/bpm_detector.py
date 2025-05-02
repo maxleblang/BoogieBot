@@ -178,8 +178,8 @@ class BPMDetectorNode(Node):
             self.p.terminate()
 
     def find_mic(self):
-        for i in range(self.audio.get_device_count()):
-            info = self.audio.get_device_info_by_index(i)
+        for i in range(self.p.get_device_count()):
+            info = self.p.get_device_info_by_index(i)
             if "USB Device" in info['name']:
                 self.get_logger().info(f"Using audio device: {info['name']} (index {i})")
                 return i
