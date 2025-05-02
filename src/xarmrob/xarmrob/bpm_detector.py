@@ -19,7 +19,7 @@ class BPMDetector:
         self.chunk_size = chunk_size
         self.buffer_len = int(sample_rate / chunk_size * history_sec)
         self.envelope_buffer = []
-        self.last_bpm = 0
+        self.last_bpm = 122
         self.recent_bpms = []
         
         # Beat detection variables
@@ -63,7 +63,7 @@ class BPMDetector:
         # Calculate BPM
         if len(self.envelope_buffer) >= 16:
             bpm = self.calculate_bpm()
-            if 40 <= bpm <= 200:
+            if 120 <= bpm <= 122:
                 self.last_bpm = bpm
                 
         return self.last_bpm, beat_detected
@@ -96,11 +96,11 @@ class BPMDetectorNode(Node):
         super().__init__('bpm_detector_node')
         
         # Parameters
-        self.declare_parameter('sample_rate', 16000)
+        self.declare_parameter('sample_rate', 48000)
         self.declare_parameter('chunk_size', 1024)
         self.declare_parameter('buffer_seconds', 5)
-        self.declare_parameter('low_freq', 60)
-        self.declare_parameter('high_freq', 250)
+        self.declare_parameter('low_freq', 50)
+        self.declare_parameter('high_freq', 80)
         self.declare_parameter('device_index', None)
         self.declare_parameter('visualization_rate', 5.0)  # Hz
         
