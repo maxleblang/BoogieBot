@@ -43,6 +43,12 @@ def generate_launch_description():
             name='boogie_commander',
             parameters=[params_file]
         ),
+        Node(
+            package='xarmrob',
+            executable='bpm_detector',
+            name='boogie_commander',
+            parameters=[params_file]
+        ),
         
         # This adds "robot_state_publisher" to publish Transforms through the "tf2" mechanism. It is a stock ROS package, and it uses the URDF file and "joint_states" topic to work. 
         Node(

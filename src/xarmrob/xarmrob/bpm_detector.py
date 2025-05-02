@@ -10,10 +10,7 @@ import threading
 import time
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float32, Float32MultiArray, Int32
-from sensor_msgs.msg import Image
-from cv_bridge import CvBridge
-import cv2
+from std_msgs.msg import Int32
 
 
 class BPMDetector:
@@ -79,7 +76,6 @@ class BPMDetectorNode(Node):
         self.buffer_seconds = self.get_parameter('buffer_seconds').value
         self.low_freq = self.get_parameter('low_freq').value
         self.high_freq = self.get_parameter('high_freq').value
-        self.device_index = self.get_parameter('device_index').value
         
         # Initialize audio buffer
         self.buffer_size = int(self.buffer_seconds * self.sample_rate)
@@ -100,10 +96,10 @@ class BPMDetectorNode(Node):
         
         # Publishers
         self.bpm_publisher = self.create_publisher(Int32, 'bpm', 10)
-        self.waveform_publisher = self.create_publisher(Float32MultiArray, 'audio_waveform', 10)
-        self.spectrum_publisher = self.create_publisher(Float32MultiArray, 'audio_spectrum', 10)
-        self.waveform_img_publisher = self.create_publisher(Image, 'waveform_image', 10)
-        self.spectrum_img_publisher = self.create_publisher(Image, 'spectrum_image', 10)
+        # self.waveform_publisher = self.create_publisher(Float32MultiArray, 'audio_waveform', 10)
+        # self.spectrum_publisher = self.create_publisher(Float32MultiArray, 'audio_spectrum', 10)
+        # self.waveform_img_publisher = self.create_publisher(Image, 'waveform_image', 10)
+        # self.spectrum_img_publisher = self.create_publisher(Image, 'spectrum_image', 10)
         
         # Initialize PyAudio
         self.p = pyaudio.PyAudio()
@@ -111,11 +107,13 @@ class BPMDetectorNode(Node):
         self.running = False
         
         # Bridge for converting images
-        self.bridge = CvBridge()
+        # self.bridge = CvBridge()
         
         # Create timers
-        timer_period = 1.0 / self.get_parameter('visualization_rate').value
-        self.timer = self.create_timer(timer_period, self.timer_callback)
+        # timer_period = 1.0 / self.get_parameter('visualization_rate').value
+        # self.timer = self.create_timer(timer_period, self.timer_callback)
+
+        self.device_index = self.find_mic()
         
         # Start audio processing in a separate thread
         self.audio_thread = threading.Thread(target=self.start_audio)
@@ -179,81 +177,89 @@ class BPMDetectorNode(Node):
                 self.stream.close()
             self.p.terminate()
 
-    def generate_waveform_image(self):
-        fig, ax = plt.subplots(figsize=(10, 4), dpi=100)
-        
-        filtered_data = self._apply_bandpass_filter(
-            self.audio_buffer, self.low_freq, self.high_freq, self.sample_rate
-        )
-        
-        ax.plot(self.time_buffer, self.audio_buffer, label='Raw Audio')
-        ax.plot(self.time_buffer, filtered_data, label='Filtered Audio', color='r', alpha=0.6)
-        ax.set_xlim([-self.buffer_seconds, 0])
-        ax.set_ylim([-1, 1])
-        ax.set_xlabel('Time (s)')
-        ax.set_ylabel('Amplitude')
-        ax.set_title(f'Audio Waveform — BPM: {self.bpm_detector.last_bpm}')
-        ax.legend()
-        ax.grid(True)
-        
-        fig.tight_layout()
-        
-        # Convert figure to image
-        fig.canvas.draw()
-        img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-        img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-        plt.close(fig)
-        
-        return img
+    def find_mic(self):
+        for i in range(self.audio.get_device_count()):
+            info = self.audio.get_device_info_by_index(i)
+            if "USB Device" in info['name']:
+                self.get_logger().info(f"Using audio device: {info['name']} (index {i})")
+                return i
+        raise RuntimeError("Logitech audio device not found!")
 
-    def generate_spectrum_image(self):
-        fig, ax = plt.subplots(figsize=(10, 4), dpi=100)
+    # def generate_waveform_image(self):
+    #     fig, ax = plt.subplots(figsize=(10, 4), dpi=100)
         
-        fft_data = np.abs(np.fft.rfft(self.fft_buffer)) / self.fft_size
+    #     filtered_data = self._apply_bandpass_filter(
+    #         self.audio_buffer, self.low_freq, self.high_freq, self.sample_rate
+    #     )
         
-        ax.plot(self.freq_buffer, fft_data)
-        ax.set_xlim([0, 2000])
-        ax.set_xlabel('Frequency (Hz)')
-        ax.set_ylabel('Magnitude')
-        ax.set_title('Frequency Spectrum')
-        ax.axvspan(self.low_freq, self.high_freq, alpha=0.2, color='red')
-        ax.grid(True)
+    #     ax.plot(self.time_buffer, self.audio_buffer, label='Raw Audio')
+    #     ax.plot(self.time_buffer, filtered_data, label='Filtered Audio', color='r', alpha=0.6)
+    #     ax.set_xlim([-self.buffer_seconds, 0])
+    #     ax.set_ylim([-1, 1])
+    #     ax.set_xlabel('Time (s)')
+    #     ax.set_ylabel('Amplitude')
+    #     ax.set_title(f'Audio Waveform — BPM: {self.bpm_detector.last_bpm}')
+    #     ax.legend()
+    #     ax.grid(True)
         
-        fig.tight_layout()
+    #     fig.tight_layout()
         
-        # Convert figure to image
-        fig.canvas.draw()
-        img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-        img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-        plt.close(fig)
+    #     # Convert figure to image
+    #     fig.canvas.draw()
+    #     img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    #     img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    #     plt.close(fig)
         
-        return img
+    #     return img
 
-    def timer_callback(self):
-        # Publish raw waveform data
-        waveform_msg = Float32MultiArray()
-        waveform_msg.data = self.audio_buffer.tolist()
-        self.waveform_publisher.publish(waveform_msg)
+    # def generate_spectrum_image(self):
+    #     fig, ax = plt.subplots(figsize=(10, 4), dpi=100)
         
-        # Publish spectrum data
-        fft_data = np.abs(np.fft.rfft(self.fft_buffer)) / self.fft_size
-        spectrum_msg = Float32MultiArray()
-        spectrum_msg.data = fft_data.tolist()
-        self.spectrum_publisher.publish(spectrum_msg)
+    #     fft_data = np.abs(np.fft.rfft(self.fft_buffer)) / self.fft_size
         
-        # Generate and publish visualization images
-        try:
-            # Waveform image
-            waveform_img = self.generate_waveform_image()
-            waveform_img_msg = self.bridge.cv2_to_imgmsg(waveform_img, encoding="rgb8")
-            self.waveform_img_publisher.publish(waveform_img_msg)
+    #     ax.plot(self.freq_buffer, fft_data)
+    #     ax.set_xlim([0, 2000])
+    #     ax.set_xlabel('Frequency (Hz)')
+    #     ax.set_ylabel('Magnitude')
+    #     ax.set_title('Frequency Spectrum')
+    #     ax.axvspan(self.low_freq, self.high_freq, alpha=0.2, color='red')
+    #     ax.grid(True)
+        
+    #     fig.tight_layout()
+        
+    #     # Convert figure to image
+    #     fig.canvas.draw()
+    #     img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    #     img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    #     plt.close(fig)
+        
+    #     return img
+
+    # def timer_callback(self):
+    #     # Publish raw waveform data
+    #     waveform_msg = Float32MultiArray()
+    #     waveform_msg.data = self.audio_buffer.tolist()
+    #     self.waveform_publisher.publish(waveform_msg)
+        
+    #     # Publish spectrum data
+    #     fft_data = np.abs(np.fft.rfft(self.fft_buffer)) / self.fft_size
+    #     spectrum_msg = Float32MultiArray()
+    #     spectrum_msg.data = fft_data.tolist()
+    #     self.spectrum_publisher.publish(spectrum_msg)
+        
+    #     # Generate and publish visualization images
+    #     try:
+    #         # Waveform image
+    #         waveform_img = self.generate_waveform_image()
+    #         waveform_img_msg = self.bridge.cv2_to_imgmsg(waveform_img, encoding="rgb8")
+    #         self.waveform_img_publisher.publish(waveform_img_msg)
             
-            # Spectrum image
-            spectrum_img = self.generate_spectrum_image()
-            spectrum_img_msg = self.bridge.cv2_to_imgmsg(spectrum_img, encoding="rgb8")
-            self.spectrum_img_publisher.publish(spectrum_img_msg)
-        except Exception as e:
-            self.get_logger().error(f'Error generating visualization: {str(e)}')
+    #         # Spectrum image
+    #         spectrum_img = self.generate_spectrum_image()
+    #         spectrum_img_msg = self.bridge.cv2_to_imgmsg(spectrum_img, encoding="rgb8")
+    #         self.spectrum_img_publisher.publish(spectrum_img_msg)
+    #     except Exception as e:
+    #         self.get_logger().error(f'Error generating visualization: {str(e)}')
 
     def destroy_node(self):
         self.get_logger().info('Shutting down BPM Detector Node')
