@@ -65,8 +65,7 @@ class BoogieCommander(Node):
             [np.pi/4,-np.pi/2, np.pi/2,-np.pi/8, -np.pi/8,0.,0.],
             [0.,-np.pi/2, np.pi/2,0.,0,0.,0.],
         ))
-        _, self.simple_dance = self.interpolate_minimum_jerk_path(self.simple_dance)
-
+        self.simple_dance = self.interpolate_minimum_jerk_path(self.simple_dance)
 
 
         self.selected_dance = self.simple_dance
@@ -152,25 +151,22 @@ class BoogieCommander(Node):
         return np.array(trajectory)
     
 
-    def interpolate_minimum_jerk_path(pose_list, endpoint_speed=0.05, command_frequency=20):
+    @staticmethod
+    def interpolate_minimum_jerk_poses_only(pose_list, endpoint_speed, command_frequency):
         """
-        Interpolates between a list of poses using minimum jerk velocity profiles.
+        Interpolates between a list of poses using minimum jerk and returns only the poses.
 
         Args:
-            pose_list (np.ndarray): An (N, D) array where N is number of waypoints and D is the dimensionality of each pose.
-            endpoint_speed (float): Desired end-point speed for trajectory timing.
-            command_frequency (float): Command/update rate in Hz.
+            pose_list (np.ndarray): (N, D) array of waypoints.
+            endpoint_speed (float): Desired speed (units/sec).
+            command_frequency (float): Command rate (Hz).
 
         Returns:
-            times (np.ndarray): Concatenated time stamps for the entire trajectory.
-            trajectory (np.ndarray): An (M, D) array of interpolated poses.
+            trajectory (np.ndarray): (M, D) array of interpolated poses.
         """
         pose_list = np.array(pose_list)
-        all_times = []
         all_poses = []
 
-        cumulative_time = 0.0
-        
         for i in range(len(pose_list) - 1):
             pos_init = pose_list[i]
             pos_end = pose_list[i + 1]
@@ -179,27 +175,18 @@ class BoogieCommander(Node):
             distance = np.linalg.norm(displacement)
             duration_nom = distance / endpoint_speed 
             nsteps = int(np.ceil(duration_nom * command_frequency))
-            duration_spec = nsteps / command_frequency
             t_rel = np.arange(nsteps) / nsteps
-            t = t_rel * duration_spec + cumulative_time  # offset time for continuity
-            
+
             min_jerk_traj = 10 * t_rel**3 - 15 * t_rel**4 + 6 * t_rel**5
             disp_traj = np.column_stack([
                 p_i + disp * min_jerk_traj
                 for p_i, disp in zip(pos_init, displacement)
             ])
 
-            all_times.append(t)
             all_poses.append(disp_traj)
 
-            cumulative_time += duration_spec
-
-        # Concatenate all segments
-        times = np.concatenate(all_times)
         trajectory = np.vstack(all_poses)
-
-        return times, trajectory
-
+        return trajectory
 
 def main(args=None):
     try: 
