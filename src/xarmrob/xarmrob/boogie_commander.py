@@ -59,22 +59,16 @@ class BoogieCommander(Node):
             [np.pi/8,-np.pi/2, np.pi/2,-np.pi/8,-np.pi/8,0.,0.],
         ))
         
-        self.simple_dance = np.vstack((
-            [np.pi/4,-np.pi/2, np.pi/2,-np.pi/8, -np.pi/8,0.,0.],
-            [0.,-np.pi/2, np.pi/2,0.,0,0.,0.],
-            [np.pi/4,-np.pi/2, np.pi/2,-np.pi/8, -np.pi/8,0.,0.],
-            [0.,-np.pi/2, np.pi/2,0.,0,0.,0.],
-        ))
-        self.simple_dance = self.interpolate_minimum_jerk_path(self.simple_dance)
+        self.simple_dance = self.interpolate_minimum_jerk_poses_only(self.simple_dance)
 
 
         self.selected_dance = self.simple_dance
         self.current_bpm = 117
         self.prev_bpm = 117
-        self.bpm_delta = 16
+        self.bpm_delta = 31
 
         # Set initial default rate to 126 BPM
-        self.timer = self.create_timer(60/((self.current_bpm/8 + self.bpm_delta) * len(self.selected_dance)), self.boogie)
+        self.timer = None
 
 
     # Callback to publish the pose at the specified rate. 
@@ -92,10 +86,11 @@ class BoogieCommander(Node):
         if 117 <= self.current_bpm <= 123:
             if abs(self.current_bpm - self.prev_bpm) >= 2:
                 # Maybe check if bpm is within a tolerance before reconfiguring timer
-                self.timer.cancel()
-                self.timer = self.create_timer(60/((self.current_bpm/8 + self.bpm_delta)*len(self.selected_dance)), self.boogie)
+                self.get_logger().info(f"Changing to new bpm of {self.current_bpm}")
+                if self.timer:
+                    self.timer.cancel()
+                self.timer = self.create_timer(60/((self.current_bpm + self.bpm_delta)*len(self.selected_dance)), self.boogie)
                 self.prev_bpm = self.current_bpm
-                self.idx = 0
 
 
     # linearly interpolate between angles
@@ -152,7 +147,7 @@ class BoogieCommander(Node):
     
 
     @staticmethod
-    def interpolate_minimum_jerk_poses_only(pose_list, endpoint_speed, command_frequency):
+    def interpolate_minimum_jerk_poses_only(pose_list, endpoint_speed=.3, command_frequency=120):
         """
         Interpolates between a list of poses using minimum jerk and returns only the poses.
 
