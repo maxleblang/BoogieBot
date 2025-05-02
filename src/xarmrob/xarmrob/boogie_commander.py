@@ -58,8 +58,31 @@ class BoogieCommander(Node):
             [0.,-np.pi/2, np.pi/2,0.,0.,0.,0.],
             [np.pi/8,-np.pi/2, np.pi/2,-np.pi/16,-np.pi/16,0.,0.],
         ))
-        
         self.simple_dance = self.interpolate_minimum_jerk_poses_only(self.simple_dance)
+
+        self.disco_point_dance = [
+            [0.0,       -np.pi/6,   np.pi/6,   -np.pi/3,   np.pi/6,  0.0,     0.0],  # Neutral base, prep pose
+            [np.pi/8,   -np.pi/4,   np.pi/3,   -np.pi/2,   np.pi/3,  0.1,    -0.1],  # Raise right, lower left
+            [np.pi/4,   -np.pi/6,   np.pi/4,   -np.pi/3,   0.0,     -0.1,     0.1],  # Point diagonally up right
+            [np.pi/2,    0.0,       np.pi/6,   -np.pi/6,  -np.pi/6,  0.05,   -0.05], # Snap into lean + flick wrist
+            [np.pi/4,   -np.pi/6,   np.pi/4,   -np.pi/3,   0.0,      0.0,     0.0],  # Return to pointing
+            [0.0,       -np.pi/4,   np.pi/3,   -np.pi/2,   np.pi/3, -0.1,     0.1],  # Mirror left point
+            [-np.pi/4,  -np.pi/6,   np.pi/4,   -np.pi/3,   0.0,      0.1,    -0.1],  # Point up left
+            [-np.pi/2,   0.0,       np.pi/6,   -np.pi/6,   np.pi/6, -0.05,    0.05]  # Pose + flick from left
+        ]
+        self.disco_point_dance = self.interpolate_joint_poses(self.disco_point_dance)
+
+        self.twist_and_punch_dance = [
+            [np.pi/6,   -np.pi/4,  np.pi/8,   -np.pi/2, np.pi/4,  0.1, -0.1],
+            [0.,        -np.pi/6,  np.pi/4,   -np.pi/4, np.pi/2, -0.1,  0.1],
+            [-np.pi/6,   np.pi/6, -np.pi/8,    np.pi/4, -np.pi/4, 0.2, -0.2],
+            [-np.pi/4,   0.,      -np.pi/2,    np.pi/2, 0.,      -0.2,  0.2],
+            [0.,        -np.pi/8,  np.pi/2,   -np.pi/8, np.pi/3,  0.1, -0.1],
+            [np.pi/4,    np.pi/6, -np.pi/4,    np.pi/4, -np.pi/3, 0.,   0.],
+            [np.pi/6,   -np.pi/4,  np.pi/8,   -np.pi/2, np.pi/4, -0.1,  0.1],
+            [0.,         0.,       0.,         0.,       0.,      0.,   0.]
+        ]
+        self.twist_and_punch_dance = self.interpolate_joint_poses(self.twist_and_punch_dance)
 
 
         self.selected_dance = self.simple_dance
