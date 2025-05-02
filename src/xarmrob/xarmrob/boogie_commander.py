@@ -149,6 +149,55 @@ class BoogieCommander(Node):
                 trajectory.append(interpolated)
         
         return np.array(trajectory)
+    
+
+    def interpolate_minimum_jerk_path(pose_list, endpoint_speed, command_frequency):
+        """
+        Interpolates between a list of poses using minimum jerk velocity profiles.
+
+        Args:
+            pose_list (np.ndarray): An (N, D) array where N is number of waypoints and D is the dimensionality of each pose.
+            endpoint_speed (float): Desired end-point speed for trajectory timing.
+            command_frequency (float): Command/update rate in Hz.
+
+        Returns:
+            times (np.ndarray): Concatenated time stamps for the entire trajectory.
+            trajectory (np.ndarray): An (M, D) array of interpolated poses.
+        """
+        pose_list = np.array(pose_list)
+        all_times = []
+        all_poses = []
+
+        cumulative_time = 0.0
+        
+        for i in range(len(pose_list) - 1):
+            pos_init = pose_list[i]
+            pos_end = pose_list[i + 1]
+            
+            displacement = pos_end - pos_init
+            distance = np.linalg.norm(displacement)
+            duration_nom = distance / endpoint_speed 
+            nsteps = int(np.ceil(duration_nom * command_frequency))
+            duration_spec = nsteps / command_frequency
+            t_rel = np.arange(nsteps) / nsteps
+            t = t_rel * duration_spec + cumulative_time  # offset time for continuity
+            
+            min_jerk_traj = 10 * t_rel**3 - 15 * t_rel**4 + 6 * t_rel**5
+            disp_traj = np.column_stack([
+                p_i + disp * min_jerk_traj
+                for p_i, disp in zip(pos_init, displacement)
+            ])
+
+            all_times.append(t)
+            all_poses.append(disp_traj)
+
+            cumulative_time += duration_spec
+
+        # Concatenate all segments
+        times = np.concatenate(all_times)
+        trajectory = np.vstack(all_poses)
+
+        return times, trajectory
 
 
 def main(args=None):
