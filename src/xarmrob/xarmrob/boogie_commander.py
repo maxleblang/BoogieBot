@@ -49,14 +49,14 @@ class BoogieCommander(Node):
 
         # Dance initialization stuff
         self.simple_dance = np.vstack((
-            [np.pi/4,-np.pi/2, np.pi/2,-np.pi/4, -np.pi/4,0.,0.],
-            [np.pi/8,-np.pi/2, np.pi/2,-np.pi/8,-np.pi/8,0.,0.],
+            [np.pi/4,-np.pi/2, np.pi/2,-np.pi/8, -np.pi/8,0.,0.],
+            [np.pi/8,-np.pi/2, np.pi/2,-np.pi/16,-np.pi/16,0.,0.],
             [0.,-np.pi/2, np.pi/2,0.,0,0.,0.],
-            [-np.pi/8,-np.pi/2, np.pi/2,np.pi/8,-np.pi/8,0.,0.],
-            [-np.pi/4,-np.pi/2, np.pi/2,np.pi/4,-np.pi/4,0.,0.],
-            [-np.pi/8,-np.pi/2, np.pi/2,np.pi/8,-np.pi/8,0.,0.],
+            [-np.pi/8,-np.pi/2, np.pi/2,np.pi/16,-np.pi/16,0.,0.],
+            [-np.pi/4,-np.pi/2, np.pi/2,np.pi/8,-np.pi/8,0.,0.],
+            [-np.pi/8,-np.pi/2, np.pi/2,np.pi/16,-np.pi/16,0.,0.],
             [0.,-np.pi/2, np.pi/2,0.,0.,0.,0.],
-            [np.pi/8,-np.pi/2, np.pi/2,-np.pi/8,-np.pi/8,0.,0.],
+            [np.pi/8,-np.pi/2, np.pi/2,-np.pi/16,-np.pi/16,0.,0.],
         ))
         
         self.simple_dance = self.interpolate_minimum_jerk_poses_only(self.simple_dance)
