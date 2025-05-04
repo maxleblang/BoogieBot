@@ -46,7 +46,7 @@ def generate_launch_description():
         Node(
             package='xarmrob',
             executable='bpm_detector',
-            name='boogie_commander',
+            name='bpm_detector',
             parameters=[params_file]
         ),
         
