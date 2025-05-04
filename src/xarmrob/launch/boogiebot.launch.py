@@ -33,12 +33,6 @@ def generate_launch_description():
         ),
         Node(
             package='xarmrob',
-            executable='xarm_kinematics',
-            name='xarm_kinematics',
-            parameters=[params_file]
-        ),
-        Node(
-            package='xarmrob',
             executable='boogie_commander',
             name='boogie_commander',
             parameters=[params_file]

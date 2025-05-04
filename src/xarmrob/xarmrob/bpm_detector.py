@@ -93,7 +93,7 @@ class BPMDetector:
 
 class BPMDetectorNode(Node):
     def __init__(self):
-        super().__init__('bpm_detector_node')
+        super().__init__('bpm_detector')
         
         # Parameters
         self.declare_parameter('sample_rate', 48000)
